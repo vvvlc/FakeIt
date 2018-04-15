@@ -64,6 +64,16 @@ Download the [Latest Release](https://github.com/eranpeer/FakeIt/releases/latest
 * Create mock classes or **spy existing objects** instantly in one simple line.
 * No limitation on number of method arguments.
 * Supports dynamic casting.
+* When a function is not mocked a stacktrace is provided only for [Catch](https://github.com/catchorg/Catch2)
+  ```
+  Unexpected method invocation: unknown()
+    An unmocked method was invoked. All used virtual methods must be stubbed!
+    Failed statement: 
+    	std::cout << i.bar("0");
+    Stacktrace: 
+       .../Debug/../src/tests.cc:44 func(SomeInterface&)
+       .../Debug/../src/tests.cc:64 ____C_A_T_C_H____T_E_S_T____3()  
+  ```
 
 ## Installation
 FakeIt is a header only framework. It does not require any installation. For extra simplicity fakeit is packaged as a single header file.
@@ -78,7 +88,7 @@ Depending on the unit testing framework you use, simply add one of the pre-packa
 * <fakeit_folder>/single_header/[gtest](https://github.com/google/googletest)
 * <fakeit_folder>/single_header/mstest
 * <fakeit_folder>/single_header/boost
-* <fakeit_folder>/single_header/[catch](https://github.com/philsquared/Catch) (Tested with Catch 2.0.1)
+* <fakeit_folder>/single_header/[catch](https://github.com/catchorg/Catch2) (Tested with Catch 2.2.2)
 * <fakeit_folder>/single_header/[tpunit](https://github.com/tpounds/tpunitpp)
 * <fakeit_folder>/single_header/[mettle](https://github.com/jimporter/mettle)
 * <fakeit_folder>/single_header/qtest
@@ -144,6 +154,18 @@ run the tests by typing
 ```
 #### Building and Running the Unit Tests with Visual Studio 
 Open the tests/all_tests.vcxproj project file with Visual Studio 2013. Build and run the project and check the test results. 
+
+#### Refres of single_header folder
+After successful build and test update `single_header` using `generate_fakeit_single_header.py`.
+
+For example:
+```bash
+cd FakeIt
+./generate_fakeit_single_header.py catch
+```
+
+Replace content of ./single_header/catch directory with new version of FakeIt with ./config/catch customization.
+
 ## Limitations
 * Currently only GCC, Clang and MSC++ are supported.
 * Can't mock classes with multiple inheritance.

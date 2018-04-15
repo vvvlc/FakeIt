@@ -99,7 +99,19 @@ def createFakeitFile(config,text):
     out.write(text)
     out.close()
 
+if __name__ == "__main__":
+    if len(sys.argv)==1 or (len(sys.argv)==2 and sys.argv[1] == '-h'):
+        print("""\
+Script will generate single header file for individual test frameworks.
+Usage:
+    generate_fakeit_single_header.py <name of folder from config directory>
+Example:
+    cd FakeIt
+    generate_fakeit_single_header.py catch
 
-config = sys.argv[1]
-text = createFakeitFileText(config)
-createFakeitFile(config,text)
+    Replace content of ./single_header/catch directory with new version of FakeIt with ./config/catch customization.
+""")
+        sys.exit(1)
+    config = sys.argv[1]
+    text = createFakeitFileText(config)
+    createFakeitFile(config,text)

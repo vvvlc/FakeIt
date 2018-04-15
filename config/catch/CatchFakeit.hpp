@@ -5,6 +5,9 @@
 #include "mockutils/to_string.hpp"
 #include "catch.hpp"
 
+#define BACKWARD_HAS_BFD 1
+#include <backward.hpp>
+
 namespace fakeit {
 
     struct VerificationException : public FakeitException {
@@ -96,9 +99,83 @@ namespace fakeit {
             }
         }
 
+        bool hasEnding (std::string const &fullString, std::string const &ending) {
+            if (fullString.length() >= ending.length()) {
+                return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+            } else {
+                return false;
+            }
+        }
+
         virtual void handle(const UnexpectedMethodCallEvent &evt) override {
-            std::string format = _formatter.format(evt);
-            fail("UnexpectedMethodCall",::Catch::SourceLineInfo("Unknown file",0),"",format, Catch::ResultWas::OfType::ExplicitFailure);
+        	using namespace backward;
+        	size_t failedFrame=SIZE_MAX;
+        	StackTrace st; st.load_here(32);
+        	Printer p;
+        	p.object = false;
+        	p.color_mode = ColorMode::always;
+        	p.address = false;
+        	p.snippet = false;
+        	//p.print(st, stdout);
+
+        	std::ostringstream stout;
+        	TraceResolver tr; tr.load_stacktrace(st);
+
+        	size_t main_i=SIZE_MAX;
+
+        	//find main(int argc, char *argv[]
+        	for (size_t i = st.size()-1; i > 0; --i) {
+        		ResolvedTrace trace = tr.resolve(st[i]);
+
+        		if (trace.object_function.compare("main")==0) {
+        			main_i=i;
+        			break;
+        		}
+        	}
+
+
+        	for (size_t i = 0; i < ((main_i==SIZE_MAX)?st.size():main_i); ++i) {
+        		ResolvedTrace trace = tr.resolve(st[i]);
+
+        		if (!hasEnding(trace.source.filename, std::string(__FILE__)) &&
+        			!hasEnding(trace.source.filename, std::string("backward.hpp")) &&
+        			!hasEnding(trace.source.filename, std::string("catch222.hpp"))
+        					) {
+
+        			//identify failed frame
+        			if (failedFrame == SIZE_MAX) {
+        				failedFrame = i;
+        			}
+        			stout << "     " << trace.source.filename << ":" << trace.source.line << " " << trace.object_function << std::endl;
+
+        		}
+        	}
+        	if (failedFrame == SIZE_MAX) {
+        		std::string format = _formatter.format(evt);
+        		fail("UnexpectedMethodCall",::Catch::SourceLineInfo("Unknown file",0),"",format, Catch::ResultWas::OfType::ExplicitFailure);
+        	} else {
+        		//TODO: move this to UnknownMethod::instnacne (add stactka trace and replace unknown method)
+        		using namespace std;
+        		ResolvedTrace trace = tr.resolve(st[failedFrame]);
+        		SnippetFactory _snippets;
+
+				typedef SnippetFactory::lines_t lines_t;
+
+				lines_t lines = _snippets.get_snippet(trace.source.filename, trace.source.line, 1);
+        		std::string format = _formatter.format(evt);
+
+        		std::ostringstream out;
+                out << format << std::endl;
+                if (lines.size()>0) {
+                	out << "  Failed statement: " << std::endl;
+                	out << "  " << lines.at(0).second << std::endl;
+                	//out << std::string( trace.source.col, ' ' ) << "^" << std::endl;
+                	out << "  Stacktrace: " << std::endl;
+                	out << stout.str() << std::endl;
+                }
+                format=out.str();
+        		fail("UnexpectedMethodCall",::Catch::SourceLineInfo(trace.source.filename.c_str(), trace.source.line),"",format, Catch::ResultWas::OfType::ExplicitFailure);
+        	}
         }
 
         virtual void handle(const SequenceVerificationEvent &evt) override {

@@ -2,7 +2,7 @@
 /*
  *  FakeIt - A Simplified C++ Mocking Framework
  *  Copyright (c) Eran Pe'er 2013
- *  Generated: 2018-01-22 14:00:12.367634
+ *  Generated: 2018-04-15 10:50:11.173843
  *  Distributed under the MIT License. Please refer to the LICENSE file at:
  *  https://github.com/eranpeer/FakeIt
  */
@@ -1088,6 +1088,9 @@ namespace fakeit {
 
 }
 
+#define BACKWARD_HAS_BFD 1
+#include <backward.hpp>
+
 namespace fakeit {
 
     struct VerificationException : public FakeitException {
@@ -1179,9 +1182,83 @@ namespace fakeit {
             }
         }
 
+        bool hasEnding (std::string const &fullString, std::string const &ending) {
+            if (fullString.length() >= ending.length()) {
+                return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+            } else {
+                return false;
+            }
+        }
+
         virtual void handle(const UnexpectedMethodCallEvent &evt) override {
-            std::string format = _formatter.format(evt);
-            fail("UnexpectedMethodCall",::Catch::SourceLineInfo("Unknown file",0),"",format, Catch::ResultWas::OfType::ExplicitFailure);
+        	using namespace backward;
+        	size_t failedFrame=SIZE_MAX;
+        	StackTrace st; st.load_here(32);
+        	Printer p;
+        	p.object = false;
+        	p.color_mode = ColorMode::always;
+        	p.address = false;
+        	p.snippet = false;
+
+
+        	std::ostringstream stout;
+        	TraceResolver tr; tr.load_stacktrace(st);
+
+        	size_t main_i=SIZE_MAX;
+
+
+        	for (size_t i = st.size()-1; i > 0; --i) {
+        		ResolvedTrace trace = tr.resolve(st[i]);
+
+        		if (trace.object_function.compare("main")==0) {
+        			main_i=i;
+        			break;
+        		}
+        	}
+
+
+        	for (size_t i = 0; i < ((main_i==SIZE_MAX)?st.size():main_i); ++i) {
+        		ResolvedTrace trace = tr.resolve(st[i]);
+
+        		if (!hasEnding(trace.source.filename, std::string(__FILE__)) &&
+        			!hasEnding(trace.source.filename, std::string("backward.hpp")) &&
+        			!hasEnding(trace.source.filename, std::string("catch222.hpp"))
+        					) {
+
+
+        			if (failedFrame == SIZE_MAX) {
+        				failedFrame = i;
+        			}
+        			stout << "     " << trace.source.filename << ":" << trace.source.line << " " << trace.object_function << std::endl;
+
+        		}
+        	}
+        	if (failedFrame == SIZE_MAX) {
+        		std::string format = _formatter.format(evt);
+        		fail("UnexpectedMethodCall",::Catch::SourceLineInfo("Unknown file",0),"",format, Catch::ResultWas::OfType::ExplicitFailure);
+        	} else {
+
+        		using namespace std;
+        		ResolvedTrace trace = tr.resolve(st[failedFrame]);
+        		SnippetFactory _snippets;
+
+				typedef SnippetFactory::lines_t lines_t;
+
+				lines_t lines = _snippets.get_snippet(trace.source.filename, trace.source.line, 1);
+        		std::string format = _formatter.format(evt);
+
+        		std::ostringstream out;
+                out << format << std::endl;
+                if (lines.size()>0) {
+                	out << "  Failed statement: " << std::endl;
+                	out << "  " << lines.at(0).second << std::endl;
+
+                	out << "  Stacktrace: " << std::endl;
+                	out << stout.str() << std::endl;
+                }
+                format=out.str();
+        		fail("UnexpectedMethodCall",::Catch::SourceLineInfo(trace.source.filename.c_str(), trace.source.line),"",format, Catch::ResultWas::OfType::ExplicitFailure);
+        	}
         }
 
         virtual void handle(const SequenceVerificationEvent &evt) override {
